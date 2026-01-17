@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_beep/flutter_beep.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -56,6 +55,7 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
 
   DateTime? _lastScanTime;
   String? _lastScanValue;
+  bool _flashVisible = false;
 
   @override
   void dispose() {
@@ -71,6 +71,20 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  void _triggerFlash() {
+    setState(() {
+      _flashVisible = true;
+    });
+    Future.delayed(const Duration(milliseconds: 120), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _flashVisible = false;
+      });
+    });
   }
 
   void _handleDetection(BarcodeCapture capture) {
@@ -102,7 +116,7 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
         _showMessage('Expected QR code for ID.');
         return;
       }
-      FlutterBeep.beep();
+      _triggerFlash();
       setState(() {
         _currentId = rawValue;
         _step = ScanStep.scanPostCode;
@@ -112,7 +126,7 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
         _showMessage('Expected Code128 for post code.');
         return;
       }
-      FlutterBeep.beep();
+      _triggerFlash();
       setState(() {
         _rows.add(ScanRow(o1: _currentId ?? '', l1: rawValue));
         _currentId = null;
@@ -199,55 +213,66 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
       appBar: AppBar(
         title: const Text('Batch Scan'),
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            flex: 5,
-            child: MobileScanner(
-              controller: _scannerController,
-              onDetect: _handleDetection,
-            ),
-          ),
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    statusText,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 12),
-                  if (_step == ScanStep.scanPostCode && _currentId != null)
-                    Text(
-                      'Captured ID: ${_currentId!}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  const SizedBox(height: 8),
-                  Text('Rows captured: ${_rows.length}'),
-                  const Spacer(),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+          Column(
+            children: [
+              Expanded(
+                flex: 5,
+                child: MobileScanner(
+                  controller: _scannerController,
+                  onDetect: _handleDetection,
+                ),
+              ),
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ElevatedButton(
-                        onPressed: _cancelCurrent,
-                        child: const Text('Cancel current'),
+                      Text(
+                        statusText,
+                        style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                      ElevatedButton(
-                        onPressed: _undoLastRow,
-                        child: const Text('Undo last row'),
-                      ),
-                      FilledButton(
-                        onPressed: _exportCsv,
-                        child: const Text('Export CSV'),
+                      const SizedBox(height: 12),
+                      if (_step == ScanStep.scanPostCode && _currentId != null)
+                        Text(
+                          'Captured ID: ${_currentId!}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      const SizedBox(height: 8),
+                      Text('Rows captured: ${_rows.length}'),
+                      const Spacer(),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          ElevatedButton(
+                            onPressed: _cancelCurrent,
+                            child: const Text('Cancel current'),
+                          ),
+                          ElevatedButton(
+                            onPressed: _undoLastRow,
+                            child: const Text('Undo last row'),
+                          ),
+                          FilledButton(
+                            onPressed: _exportCsv,
+                            child: const Text('Export CSV'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
+            ],
+          ),
+          IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: _flashVisible ? 0.35 : 0.0,
+              duration: const Duration(milliseconds: 120),
+              child: Container(color: Theme.of(context).colorScheme.primary),
             ),
           ),
         ],
