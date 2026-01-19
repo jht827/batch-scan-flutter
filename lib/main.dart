@@ -14,6 +14,11 @@ enum ScanStep {
   scanPostCode,
 }
 
+enum FirstScanFormat {
+  qrCode,
+  code39,
+}
+
 class ScanRow {
   const ScanRow({required this.o1, required this.l1, this.s1 = 1});
 
@@ -50,6 +55,7 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
       MobileScannerController(autoStart: true);
 
   ScanStep _step = ScanStep.scanId;
+  FirstScanFormat _firstScanFormat = FirstScanFormat.qrCode;
   String? _currentId;
   final List<ScanRow> _rows = [];
 
@@ -112,8 +118,13 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
 
     final format = barcode.format;
     if (_step == ScanStep.scanId) {
-      if (format != BarcodeFormat.qrCode) {
-        _showMessage('Expected QR code for ID.');
+      final expectedFormat = _firstScanFormat == FirstScanFormat.qrCode
+          ? BarcodeFormat.qrCode
+          : BarcodeFormat.code39;
+      if (format != expectedFormat) {
+        final formatLabel =
+            _firstScanFormat == FirstScanFormat.qrCode ? 'QR code' : 'Code 39';
+        _showMessage('Expected $formatLabel for ID.');
         return;
       }
       _triggerFlash();
@@ -206,7 +217,7 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
   @override
   Widget build(BuildContext context) {
     final statusText = _step == ScanStep.scanId
-        ? 'Step 1/2: Scan ID QR'
+        ? 'Step 1/2: Scan ID ${_firstScanFormat == FirstScanFormat.qrCode ? 'QR' : 'Code 39'}'
         : 'Step 2/2: Scan Post Code128';
 
     return Scaffold(
@@ -234,6 +245,31 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
                       Text(
                         statusText,
                         style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 12),
+                      IgnorePointer(
+                        ignoring: _step == ScanStep.scanPostCode,
+                        child: Opacity(
+                          opacity: _step == ScanStep.scanPostCode ? 0.5 : 1,
+                          child: SegmentedButton<FirstScanFormat>(
+                            segments: const [
+                              ButtonSegment(
+                                value: FirstScanFormat.qrCode,
+                                label: Text('QR'),
+                              ),
+                              ButtonSegment(
+                                value: FirstScanFormat.code39,
+                                label: Text('Code 39'),
+                              ),
+                            ],
+                            selected: <FirstScanFormat>{_firstScanFormat},
+                            onSelectionChanged: (selection) {
+                              setState(() {
+                                _firstScanFormat = selection.first;
+                              });
+                            },
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       if (_step == ScanStep.scanPostCode && _currentId != null)
